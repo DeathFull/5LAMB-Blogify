@@ -1,8 +1,5 @@
-# "org" ensures this Service is used with the correct Serverless Framework Access Key.
 org: blogify
-# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
 app: blogify
-# "service" is the name of this project. This will also be added to your AWS resource names.
 service: blogify
 
 stages:
@@ -13,9 +10,11 @@ stages:
 provider:
   name: aws
   runtime: nodejs20.x
-  # Uncomment to easily set up a custom domain. Read the docs for more details:
-  # https://www.serverless.com/framework/docs/providers/aws/guide/domains
-  # domain: api.example.com
+  region: eu-west-3
+  httpApi:
+    cors: true
+  environment:
+    USERS_TABLE: ${param:tableName}
   iam:
     role:
       statements:
@@ -28,15 +27,18 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
-            - Fn::GetAtt: [ UsersTable, Arn ]
-  environment:
-    USERS_TABLE: ${param:tableName}
+            - Fn::GetAtt: [UsersTable, Arn]
 
 functions:
   api:
-    handler: handler.handler
+    handler: lambda.handler
     events:
-      - httpApi: "*"
+      - httpApi:
+          method: GET
+          path: /users/{userId}
+      - httpApi:
+          method: POST
+          path: /users
 
 resources:
   Resources:

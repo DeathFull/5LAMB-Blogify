@@ -5,7 +5,9 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.920.0",
     "@aws-sdk/lib-dynamodb": "^3.920.0",
-    "express": "^5.1.0",
     "serverless-http": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }
