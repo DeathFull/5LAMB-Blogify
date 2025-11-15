@@ -1,0 +1,648 @@
+openapi: 3.0.3
+info:
+  title: Blogify Headless Blogging API
+  description: >
+    Serverless backend for Blogify built on AWS Lambda, API Gateway, DynamoDB
+    and S3. Provides authentication, post management, and media management via REST APIs.
+  version: 1.0.0
+
+servers:
+  - url: https://pnvaoca5d1.execute-api.eu-west-3.amazonaws.com
+    description: Dev environment
+
+tags:
+  - name: Auth
+    description: User registration and login
+  - name: Posts
+    description: Blog posts CRUD operations
+  - name: Media
+    description: Media upload and management
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUserRequest"
+      responses:
+        "201":
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and obtain a JWT
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /posts:
+    post:
+      tags: [Posts]
+      summary: Create a new post
+      operationId: createPost
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostRequest"
+      responses:
+        "201":
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      tags: [Posts]
+      summary: List all posts
+      operationId: listPosts
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+          required: false
+          description: Optional max number of posts to return
+      responses:
+        "200":
+          description: List of posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostListResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /posts/{postId}:
+    get:
+      tags: [Posts]
+      summary: Get a post by ID
+      operationId: getPost
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Post found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags: [Posts]
+      summary: Update a post
+      description: >
+        Only the author, an editor, or an admin can update this post. Authors can only update their own posts.
+      operationId: updatePost
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePostRequest"
+      responses:
+        "200":
+          description: Post updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Invalid request body or parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: User not allowed to modify this post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags: [Posts]
+      summary: Delete a post
+      description: >
+        Only the author, an editor, or an admin can delete this post. Authors can only delete their own posts.
+      operationId: deletePost
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Post deleted
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: User not allowed to delete this post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /posts/{postId}/media:
+    get:
+      tags: [Media]
+      summary: List media attached to a post
+      operationId: listMediaForPost
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Media list for the post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaListResponse"
+        "404":
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /media:
+    post:
+      tags: [Media]
+      summary: Prepare a media upload and store metadata
+      description: >
+        Creates media metadata in DynamoDB and returns a presigned S3 URL for uploading
+        the file. If a postId is provided, the post must exist and the user must be allowed
+        to modify that post (author of the post, editor, or admin).
+      operationId: createMedia
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMediaRequest"
+      responses:
+        "201":
+          description: Media metadata created and upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateMediaResponse"
+        "400":
+          description: Invalid request body or non-existent target post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: User not allowed to attach media to the target post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /media/{mediaId}:
+    get:
+      tags: [Media]
+      summary: Redirect to the media file in S3
+      description: >
+        Looks up media metadata by mediaId, generates a presigned S3 GET URL and responds
+        with a 302 redirect to that URL. Pasting this endpoint directly into a browser
+        will display the image or file if permissions allow.
+      operationId: getMedia
+      parameters:
+        - in: path
+          name: mediaId
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to the media file in S3
+          headers:
+            Location:
+              description: Presigned S3 URL for downloading the media object
+              schema:
+                type: string
+                format: uri
+        "404":
+          description: Media not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Generic error
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    # Auth / Users
+    RegisterUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 6
+        name:
+          type: string
+      required:
+        - email
+        - password
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+        - email
+        - password
+
+    UserRole:
+      type: string
+      enum: [ADMIN, EDITOR, AUTHOR]
+
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        role:
+          $ref: "#/components/schemas/UserRole"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - userId
+        - email
+        - role
+        - createdAt
+        - updatedAt
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+
+    # Posts
+    PostStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED]
+
+    Post:
+      type: object
+      properties:
+        postId:
+          type: string
+        authorId:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        status:
+          $ref: "#/components/schemas/PostStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - postId
+        - authorId
+        - title
+        - content
+        - status
+        - createdAt
+        - updatedAt
+
+    CreatePostRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+        content:
+          type: string
+          minLength: 10
+      required:
+        - title
+        - content
+
+    UpdatePostRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+        content:
+          type: string
+          minLength: 10
+      description: At least one of title or content must be provided.
+
+    PostListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        count:
+          type: integer
+      required:
+        - items
+        - count
+
+    # Media
+    MediaType:
+      type: string
+      enum: [IMAGE, VIDEO, OTHER]
+
+    MediaItem:
+      type: object
+      properties:
+        mediaId:
+          type: string
+        ownerId:
+          type: string
+        postId:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/MediaType"
+        mimeType:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          format: int64
+        bucketKey:
+          type: string
+          description: Internal S3 object key
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - mediaId
+        - ownerId
+        - type
+        - mimeType
+        - fileName
+        - fileSize
+        - bucketKey
+        - createdAt
+
+    MediaListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaItem"
+        count:
+          type: integer
+      required:
+        - items
+        - count
+
+    CreateMediaRequest:
+      type: object
+      properties:
+        fileName:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+          format: int64
+        type:
+          $ref: "#/components/schemas/MediaType"
+        postId:
+          type: string
+          nullable: true
+      required:
+        - fileName
+        - mimeType
+        - fileSize
+
+    CreateMediaResponse:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+          format: uri
+          description: Presigned S3 URL for uploading the media file
+        media:
+          $ref: "#/components/schemas/MediaItem"
+      required:
+        - uploadUrl
+        - media
