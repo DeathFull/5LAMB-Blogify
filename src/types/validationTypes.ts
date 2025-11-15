@@ -1,3 +1,4 @@
+import { MediaType } from "./mediaTypes";
 import { RegisterUserPayload } from "./userTypes";
 
 export type LoginValid = {
@@ -32,11 +33,23 @@ export type UpdatePostValid = {
     content?: string;
   };
 };
+export type CreateMediaValid = {
+  ok: true;
+  value: {
+    fileName: string;
+    mimeType: string;
+    fileSize: number;
+    type: MediaType;
+    postId?: string;
+  };
+};
 
 export type RequestFailure = {
   ok: false;
   message: string;
 };
+
+export type CreateMediaResult = CreateMediaValid | RequestFailure;
 
 export type UpdatePostResult = UpdatePostValid | RequestFailure;
 

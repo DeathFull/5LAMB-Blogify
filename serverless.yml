@@ -5,6 +5,8 @@ service: blogify
 custom:
   usersTableName: ${sls:stage}-blogify-users
   postsTableName: ${sls:stage}-blogify-posts
+  mediaBucketName: ${sls:stage}-blogify-media
+  mediaTableName: ${sls:stage}-blogify-media-metadata
 
 stages:
   default:
@@ -20,6 +22,8 @@ provider:
   environment:
     USERS_TABLE: ${self:custom.usersTableName}
     POSTS_TABLE: ${self:custom.postsTableName}
+    MEDIA_BUCKET: ${self:custom.mediaBucketName}
+    MEDIA_TABLE: ${self:custom.mediaTableName}
     JWT_SECRET: "Paulette super secrete"
 
   iam:
@@ -37,6 +41,15 @@ provider:
             - Fn::GetAtt: [UsersTable, Arn]
             - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.usersTableName}/index/email-index
             - Fn::GetAtt: [PostsTable, Arn]
+            - Fn::GetAtt: [MediaTable, Arn]
+
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+          Resource:
+            - arn:aws:s3:::${self:custom.mediaBucketName}/*
 
 functions:
   registerUser:
@@ -135,4 +148,31 @@ resources:
             AttributeType: S
         KeySchema:
           - AttributeName: postId
+            KeyType: HASH
+
+    MediaBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.mediaBucketName}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - "*"
+              AllowedMethods:
+                - GET
+                - PUT
+              AllowedHeaders:
+                - "*"
+              MaxAge: 3000
+
+    MediaTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.mediaTableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: mediaId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: mediaId
             KeyType: HASH

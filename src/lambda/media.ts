@@ -1,12 +1,29 @@
 import buildJsonResponse from "../helpers/buildJsonResponse";
 import { HttpApiEvent, HttpApiResponse } from "../types/httpTypes";
 import { verifyJwt } from "../helpers/verifyJwt";
+import { validateCreateMediaPayload } from "../middleware/media/validateMediaPayload";
+import { s3Client } from "../config/s3Client";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { randomUUID } from "crypto";
+import { dynamoDbDocumentClient } from "../config/dynamoDbClient";
+import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { MediaItem } from "../types/mediaTypes";
+
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
+const MEDIA_TABLE = process.env.MEDIA_TABLE;
 
 export async function createMedia(
   event: HttpApiEvent,
 ): Promise<HttpApiResponse> {
-  const authResult = verifyJwt(event);
+  if (!MEDIA_BUCKET || !MEDIA_TABLE) {
+    return buildJsonResponse(500, {
+      message:
+        "Server configuration error: MEDIA_BUCKET or MEDIA_TABLE is not set",
+    });
+  }
 
+  const authResult = verifyJwt(event);
   if (!authResult.ok) {
     return buildJsonResponse(authResult.statusCode, {
       message: authResult.message,
@@ -15,25 +32,123 @@ export async function createMedia(
 
   const user = authResult.user;
 
-  return buildJsonResponse(201, {
-    message: "createMedia - not implemented yet",
-    debug: {
-      userId: user.userId,
-      email: user.email,
-      role: user.role,
-    },
-  });
+  const validationResult = validateCreateMediaPayload(event.body ?? null);
+
+  if (!validationResult.ok) {
+    return buildJsonResponse(400, {
+      message: validationResult.message,
+    });
+  }
+
+  const { fileName, mimeType, fileSize, type, postId } = validationResult.value;
+
+  const mediaId = randomUUID();
+  const safeFileName = fileName.replace(/\s+/g, "-");
+  const bucketKeyParts = [user.userId, mediaId, safeFileName].filter(Boolean);
+  const bucketKey = bucketKeyParts.join("/");
+
+  const now = new Date().toISOString();
+
+  const mediaItem: MediaItem = {
+    mediaId,
+    ownerId: user.userId,
+    postId,
+    type,
+    mimeType,
+    fileName,
+    fileSize,
+    bucketKey,
+    createdAt: now,
+  };
+
+  try {
+    await dynamoDbDocumentClient.send(
+      new PutCommand({
+        TableName: MEDIA_TABLE,
+        Item: mediaItem,
+        ConditionExpression: "attribute_not_exists(mediaId)",
+      }),
+    );
+
+    const putCommand = new PutObjectCommand({
+      Bucket: MEDIA_BUCKET,
+      Key: bucketKey,
+      ContentType: mimeType,
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, putCommand, {
+      expiresIn: 15 * 60,
+    });
+
+    return buildJsonResponse(201, {
+      uploadUrl,
+      media: mediaItem,
+    });
+  } catch (error) {
+    console.error("Error in createMedia:", error);
+
+    return buildJsonResponse(500, {
+      message:
+        "An unexpected error occurred while preparing media upload (metadata)",
+    });
+  }
 }
 
 export async function getMedia(event: HttpApiEvent): Promise<HttpApiResponse> {
+  if (!MEDIA_BUCKET || !MEDIA_TABLE) {
+    return buildJsonResponse(500, {
+      message:
+        "Server configuration error: MEDIA_BUCKET or MEDIA_TABLE is not set",
+    });
+  }
+
   const mediaId = event.pathParameters?.mediaId;
 
-  return buildJsonResponse(200, {
-    message: "getMedia - not implemented yet",
-    debug: {
-      mediaId,
-      method: event.requestContext.http.method,
-      path: event.rawPath,
-    },
-  });
+  if (!mediaId) {
+    return buildJsonResponse(400, {
+      message: "mediaId path parameter is required",
+    });
+  }
+
+  try {
+    const result = await dynamoDbDocumentClient.send(
+      new GetCommand({
+        TableName: MEDIA_TABLE,
+        Key: { mediaId },
+      }),
+    );
+
+    if (!result.Item) {
+      return buildJsonResponse(404, {
+        message: "Media not found",
+      });
+    }
+
+    const media = result.Item as MediaItem;
+
+    const getCommand = new GetObjectCommand({
+      Bucket: MEDIA_BUCKET,
+      Key: media.bucketKey,
+    });
+
+    const downloadUrl = await getSignedUrl(s3Client, getCommand, {
+      expiresIn: 15 * 60,
+    });
+
+    const response: HttpApiResponse = {
+      statusCode: 302,
+      headers: {
+        Location: downloadUrl,
+      },
+      body: "",
+    };
+
+    return response;
+  } catch (error) {
+    console.error("Error in getMedia:", error);
+
+    return buildJsonResponse(500, {
+      message: "An unexpected error occurred while preparing media download",
+    });
+  }
 }
