@@ -1,12 +1,15 @@
 {
   "compilerOptions": {
-    "module": "system",
-    "noImplicitAny": true,
-    "removeComments": true,
-    "preserveConstEnums": true,
-    "outFile": "../../built/local/tsc.js",
-    "sourceMap": true
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "outDir": "build",
+    "rootDir": "."
   },
-  "include": ["*"],
-  "exclude": ["**/*.spec.ts"]
+  "include": ["*.ts"],
+  "exclude": ["node_modules", "build", ".serverless"]
 }

@@ -2,6 +2,12 @@ org: blogify
 app: blogify
 service: blogify
 
+custom:
+  usersTableName: ${sls:stage}-blogify-users
+  postsTableName: ${sls:stage}-blogify-posts
+  mediaBucketName: ${sls:stage}-blogify-media
+  mediaTableName: ${sls:stage}-blogify-media-metadata
+
 stages:
   default:
     params:
@@ -14,7 +20,12 @@ provider:
   httpApi:
     cors: true
   environment:
-    USERS_TABLE: ${param:tableName}
+    USERS_TABLE: ${self:custom.usersTableName}
+    POSTS_TABLE: ${self:custom.postsTableName}
+    MEDIA_BUCKET: ${self:custom.mediaBucketName}
+    MEDIA_TABLE: ${self:custom.mediaTableName}
+    JWT_SECRET: "Paulette super secrete"
+
   iam:
     role:
       statements:
@@ -28,28 +39,157 @@ provider:
             - dynamodb:DeleteItem
           Resource:
             - Fn::GetAtt: [UsersTable, Arn]
+            - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.usersTableName}/index/email-index
+            - Fn::GetAtt: [PostsTable, Arn]
+            - Fn::GetAtt: [MediaTable, Arn]
+            - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.mediaTableName}/index/postId-index
+
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+          Resource:
+            - arn:aws:s3:::${self:custom.mediaBucketName}/*
 
 functions:
-  api:
-    handler: lambda.handler
+  registerUser:
+    handler: src/lambda/auth.registerUser
+    events:
+      - httpApi:
+          method: POST
+          path: /auth/register
+
+  loginUser:
+    handler: src/lambda/auth.loginUser
+    events:
+      - httpApi:
+          method: POST
+          path: /auth/login
+
+  createPost:
+    handler: src/lambda/posts.createPost
+    events:
+      - httpApi:
+          method: POST
+          path: /posts
+
+  getPost:
+    handler: src/lambda/posts.getPost
     events:
       - httpApi:
           method: GET
-          path: /users/{userId}
+          path: /posts/{postId}
+
+  listPosts:
+    handler: src/lambda/posts.listPosts
+    events:
+      - httpApi:
+          method: GET
+          path: /posts
+
+  updatePost:
+    handler: src/lambda/posts.updatePost
+    events:
+      - httpApi:
+          method: PUT
+          path: /posts/{postId}
+
+  deletePost:
+    handler: src/lambda/posts.deletePost
+    events:
+      - httpApi:
+          method: DELETE
+          path: /posts/{postId}
+
+  createMedia:
+    handler: src/lambda/media.createMedia
+    events:
       - httpApi:
           method: POST
-          path: /users
+          path: /media
+
+  getMedia:
+    handler: src/lambda/media.getMedia
+    events:
+      - httpApi:
+          method: GET
+          path: /media/{mediaId}
+
+  listMediaForPost:
+    handler: src/lambda/media.listMediaForPost
+    events:
+      - httpApi:
+          method: GET
+          path: /posts/{postId}/media
 
 resources:
   Resources:
     UsersTable:
       Type: AWS::DynamoDB::Table
       Properties:
+        TableName: ${self:custom.usersTableName}
+        BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: userId
+            AttributeType: S
+          - AttributeName: email
             AttributeType: S
         KeySchema:
           - AttributeName: userId
             KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: email-index
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    PostsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.postsTableName}
         BillingMode: PAY_PER_REQUEST
-        TableName: ${param:tableName}
+        AttributeDefinitions:
+          - AttributeName: postId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: postId
+            KeyType: HASH
+
+    MediaBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.mediaBucketName}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - "*"
+              AllowedMethods:
+                - GET
+                - PUT
+              AllowedHeaders:
+                - "*"
+              MaxAge: 3000
+
+    MediaTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.mediaTableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: mediaId
+            AttributeType: S
+          - AttributeName: postId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: mediaId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: postId-index
+            KeySchema:
+              - AttributeName: postId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
