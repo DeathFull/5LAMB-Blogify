@@ -88,6 +88,20 @@ functions:
           method: DELETE
           path: /posts/{postId}
 
+  createMedia:
+    handler: src/lambda/media.createMedia
+    events:
+      - httpApi:
+          method: POST
+          path: /media
+
+  getMedia:
+    handler: src/lambda/media.getMedia
+    events:
+      - httpApi:
+          method: GET
+          path: /media/{mediaId}
+
 resources:
   Resources:
     UsersTable:
