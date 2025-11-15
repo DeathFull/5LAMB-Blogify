@@ -2,6 +2,9 @@ org: blogify
 app: blogify
 service: blogify
 
+custom:
+  usersTableName: ${sls:stage}-blogify-users
+
 stages:
   default:
     params:
@@ -14,7 +17,16 @@ provider:
   httpApi:
     cors: true
   environment:
-    USERS_TABLE: ${param:tableName}
+    USERS_TABLE: ${self:custom.usersTableName}
+    JWT_SECRET: "Paulette super secrete"
+  # iamRoleStatements:
+  #   - Effect: Allow
+  #     Action:
+  #       - dynamodb:PutItem
+  #       - dynamodb:Query
+  #     Resource:
+  #       - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.usersTableName}
+  #       - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.usersTableName}/index/email-index
   iam:
     role:
       statements:
@@ -28,28 +40,42 @@ provider:
             - dynamodb:DeleteItem
           Resource:
             - Fn::GetAtt: [UsersTable, Arn]
+            - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.usersTableName}/index/email-index
 
 functions:
-  api:
-    handler: lambda.handler
+  registerUser:
+    handler: src/lambda/auth.registerUser
     events:
       - httpApi:
-          method: GET
-          path: /users/{userId}
+          method: POST
+          path: /auth/register
+
+  loginUser:
+    handler: src/lambda/auth.loginUser
+    events:
       - httpApi:
           method: POST
-          path: /users
+          path: /auth/login
 
 resources:
   Resources:
     UsersTable:
       Type: AWS::DynamoDB::Table
       Properties:
+        TableName: ${self:custom.usersTableName}
+        BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: userId
+            AttributeType: S
+          - AttributeName: email
             AttributeType: S
         KeySchema:
           - AttributeName: userId
             KeyType: HASH
-        BillingMode: PAY_PER_REQUEST
-        TableName: ${param:tableName}
+        GlobalSecondaryIndexes:
+          - IndexName: email-index
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
