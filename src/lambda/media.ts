@@ -9,9 +9,12 @@ import { randomUUID } from "crypto";
 import { dynamoDbDocumentClient } from "../config/dynamoDbClient";
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { MediaItem } from "../types/mediaTypes";
+import { PostItem } from "../types/postTypes";
+import { canModifyPost } from "../middleware/posts/canModifyPost";
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
 const MEDIA_TABLE = process.env.MEDIA_TABLE;
+const POSTS_TABLE = process.env.POSTS_TABLE;
 
 export async function createMedia(
   event: HttpApiEvent,
@@ -41,6 +44,44 @@ export async function createMedia(
   }
 
   const { fileName, mimeType, fileSize, type, postId } = validationResult.value;
+
+  if (postId) {
+    if (!POSTS_TABLE) {
+      return buildJsonResponse(500, {
+        message: "Server configuration error: POSTS_TABLE is not set",
+      });
+    }
+
+    try {
+      const postResult = await dynamoDbDocumentClient.send(
+        new GetCommand({
+          TableName: POSTS_TABLE,
+          Key: { postId },
+        }),
+      );
+
+      if (!postResult.Item) {
+        return buildJsonResponse(400, {
+          message: "Cannot attach media: target post does not exist",
+        });
+      }
+
+      const post = postResult.Item as PostItem;
+
+      const permission = canModifyPost(user, post);
+      if (!permission.ok) {
+        return buildJsonResponse(403, {
+          message: "You do not have permission to attach media to this post",
+        });
+      }
+    } catch (error) {
+      console.error("Error validating post in createMedia:", error);
+      return buildJsonResponse(500, {
+        message:
+          "An unexpected error occurred while validating the target post",
+      });
+    }
+  }
 
   const mediaId = randomUUID();
   const safeFileName = fileName.replace(/\s+/g, "-");
