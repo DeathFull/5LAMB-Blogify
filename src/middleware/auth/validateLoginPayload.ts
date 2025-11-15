@@ -1,4 +1,4 @@
-import { LoginResult } from "../types/authTypes";
+import { LoginResult } from "../../types/authTypes";
 
 export function validateLoginPayload(
   body: string | null | undefined,

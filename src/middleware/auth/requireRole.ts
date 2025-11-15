@@ -1,5 +1,5 @@
-import { RequireRoleResult } from "../types/authTypes";
-import { AuthenticatedUser, UserRole } from "../types/userTypes";
+import { RequireRoleResult } from "../../types/authTypes";
+import { AuthenticatedUser, UserRole } from "../../types/userTypes";
 
 export function requireRole(
   user: AuthenticatedUser,

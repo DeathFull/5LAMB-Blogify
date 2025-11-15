@@ -4,6 +4,7 @@ service: blogify
 
 custom:
   usersTableName: ${sls:stage}-blogify-users
+  postsTableName: ${sls:stage}-blogify-posts
 
 stages:
   default:
@@ -18,15 +19,9 @@ provider:
     cors: true
   environment:
     USERS_TABLE: ${self:custom.usersTableName}
+    POSTS_TABLE: ${self:custom.postsTableName}
     JWT_SECRET: "Paulette super secrete"
-  # iamRoleStatements:
-  #   - Effect: Allow
-  #     Action:
-  #       - dynamodb:PutItem
-  #       - dynamodb:Query
-  #     Resource:
-  #       - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.usersTableName}
-  #       - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.usersTableName}/index/email-index
+
   iam:
     role:
       statements:
@@ -41,6 +36,7 @@ provider:
           Resource:
             - Fn::GetAtt: [UsersTable, Arn]
             - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.usersTableName}/index/email-index
+            - Fn::GetAtt: [PostsTable, Arn]
 
 functions:
   registerUser:
@@ -56,6 +52,41 @@ functions:
       - httpApi:
           method: POST
           path: /auth/login
+
+  createPost:
+    handler: src/lambda/posts.createPost
+    events:
+      - httpApi:
+          method: POST
+          path: /posts
+
+  getPost:
+    handler: src/lambda/posts.getPost
+    events:
+      - httpApi:
+          method: GET
+          path: /posts/{postId}
+
+  listPosts:
+    handler: src/lambda/posts.listPosts
+    events:
+      - httpApi:
+          method: GET
+          path: /posts
+
+  updatePost:
+    handler: src/lambda/posts.updatePost
+    events:
+      - httpApi:
+          method: PUT
+          path: /posts/{postId}
+
+  deletePost:
+    handler: src/lambda/posts.deletePost
+    events:
+      - httpApi:
+          method: DELETE
+          path: /posts/{postId}
 
 resources:
   Resources:
@@ -79,3 +110,15 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+
+    PostsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.postsTableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: postId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: postId
+            KeyType: HASH

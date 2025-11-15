@@ -5,9 +5,9 @@ import { QueryCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import * as bcrypt from "bcryptjs";
 import * as jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
-import validateRegisterPayload from "../middleware/validateRegisterPayload";
+import validateRegisterPayload from "../middleware/auth/validateRegisterPayload";
 import { UserItem } from "../types/userTypes";
-import { validateLoginPayload } from "../middleware/validateLoginPayload";
+import { validateLoginPayload } from "../middleware/auth/validateLoginPayload";
 
 const USERS_TABLE = process.env.USERS_TABLE;
 const JWT_SECRET = process.env.JWT_SECRET;

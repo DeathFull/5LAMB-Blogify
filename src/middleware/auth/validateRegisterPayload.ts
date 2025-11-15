@@ -1,5 +1,5 @@
-import { RegistrationResult } from "../types/authTypes";
-import { RegisterUserPayload } from "../types/userTypes";
+import { RegistrationResult } from "../../types/authTypes";
+import { RegisterUserPayload } from "../../types/userTypes";
 
 export default function validateRegisterPayload(
   body: string | null | undefined,
