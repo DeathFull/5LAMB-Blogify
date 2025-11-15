@@ -7,7 +7,7 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { dynamoDbDocumentClient } from "../config/dynamoDbClient";
-import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { MediaItem } from "../types/mediaTypes";
 import { PostItem } from "../types/postTypes";
 import { canModifyPost } from "../middleware/posts/canModifyPost";
@@ -75,7 +75,7 @@ export async function createMedia(
         });
       }
     } catch (error) {
-      console.error("Error validating post in createMedia:", error);
+      console.log("Error validating post in createMedia:", error);
       return buildJsonResponse(500, {
         message:
           "An unexpected error occurred while validating the target post",
@@ -126,7 +126,7 @@ export async function createMedia(
       media: mediaItem,
     });
   } catch (error) {
-    console.error("Error in createMedia:", error);
+    console.log("Error in createMedia:", error);
 
     return buildJsonResponse(500, {
       message:
@@ -186,10 +186,80 @@ export async function getMedia(event: HttpApiEvent): Promise<HttpApiResponse> {
 
     return response;
   } catch (error) {
-    console.error("Error in getMedia:", error);
+    console.log("Error in getMedia:", error);
 
     return buildJsonResponse(500, {
       message: "An unexpected error occurred while preparing media download",
+    });
+  }
+}
+
+export async function listMediaForPost(
+  event: HttpApiEvent,
+): Promise<HttpApiResponse> {
+  if (!MEDIA_TABLE || !POSTS_TABLE) {
+    return buildJsonResponse(500, {
+      message:
+        "Server configuration error: MEDIA_TABLE or POSTS_TABLE is not set",
+    });
+  }
+
+  const postId = event.pathParameters?.postId;
+
+  if (!postId) {
+    return buildJsonResponse(400, {
+      message: "postId path parameter is required",
+    });
+  }
+
+  try {
+    const postResult = await dynamoDbDocumentClient.send(
+      new GetCommand({
+        TableName: POSTS_TABLE,
+        Key: { postId },
+      }),
+    );
+
+    if (!postResult.Item) {
+      return buildJsonResponse(404, {
+        message: "Post not found",
+      });
+    }
+
+    const mediaResult = await dynamoDbDocumentClient.send(
+      new QueryCommand({
+        TableName: MEDIA_TABLE,
+        IndexName: "postId-index",
+        KeyConditionExpression: "postId = :postId",
+        ExpressionAttributeValues: {
+          ":postId": postId,
+        },
+      }),
+    );
+
+    const items = (mediaResult.Items ?? []) as MediaItem[];
+
+    const media = items.map((m) => ({
+      mediaId: m.mediaId,
+      ownerId: m.ownerId,
+      postId: m.postId,
+      type: m.type,
+      mimeType: m.mimeType,
+      fileName: m.fileName,
+      fileSize: m.fileSize,
+      bucketKey: m.bucketKey,
+      createdAt: m.createdAt,
+    }));
+
+    return buildJsonResponse(200, {
+      items: media,
+      count: media.length,
+    });
+  } catch (error) {
+    console.log("Error in listMediaForPost:", error);
+
+    return buildJsonResponse(500, {
+      message: "An unexpected error occurred while listing media for post",
     });
   }
 }

@@ -42,6 +42,7 @@ provider:
             - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.usersTableName}/index/email-index
             - Fn::GetAtt: [PostsTable, Arn]
             - Fn::GetAtt: [MediaTable, Arn]
+            - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.mediaTableName}/index/postId-index
 
         - Effect: Allow
           Action:
@@ -115,6 +116,13 @@ functions:
           method: GET
           path: /media/{mediaId}
 
+  listMediaForPost:
+    handler: src/lambda/media.listMediaForPost
+    events:
+      - httpApi:
+          method: GET
+          path: /posts/{postId}/media
+
 resources:
   Resources:
     UsersTable:
@@ -173,6 +181,15 @@ resources:
         AttributeDefinitions:
           - AttributeName: mediaId
             AttributeType: S
+          - AttributeName: postId
+            AttributeType: S
         KeySchema:
           - AttributeName: mediaId
             KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: postId-index
+            KeySchema:
+              - AttributeName: postId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
