@@ -137,40 +137,58 @@ export async function getPost(event: HttpApiEvent): Promise<HttpApiResponse> {
   }
 }
 
-export async function listPosts(
-  _event: HttpApiEvent,
-): Promise<HttpApiResponse> {
+export async function listPosts(event: HttpApiEvent): Promise<HttpApiResponse> {
   if (!POSTS_TABLE) {
     return buildJsonResponse(500, {
       message: "Server configuration error: POSTS_TABLE is not set",
     });
   }
 
+  const queryParams = event.queryStringParameters ?? {};
+  const query = queryParams.q?.trim();
+  const limitRaw = queryParams.limit;
+
+  let limit: number | undefined;
+  if (limitRaw) {
+    const parsed = Number.parseInt(limitRaw, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      limit = parsed;
+    }
+  }
+
+  const scanInput: any = {
+    TableName: POSTS_TABLE,
+  };
+
+  if (limit) {
+    scanInput.Limit = limit;
+  }
+
+  if (query && query.length > 0) {
+    scanInput.FilterExpression =
+      "(contains(#title, :q) OR contains(#content, :q))";
+    scanInput.ExpressionAttributeNames = {
+      "#title": "title",
+      "#content": "content",
+    };
+    scanInput.ExpressionAttributeValues = {
+      ":q": query,
+    };
+  }
+
   try {
     const result = await dynamoDbDocumentClient.send(
-      new ScanCommand({
-        TableName: POSTS_TABLE,
-      }),
+      new ScanCommand(scanInput),
     );
 
     const items = (result.Items ?? []) as PostItem[];
 
-    const posts = items.map((post) => ({
-      postId: post.postId,
-      authorId: post.authorId,
-      title: post.title,
-      content: post.content,
-      status: post.status,
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-    }));
-
     return buildJsonResponse(200, {
-      items: posts,
-      count: posts.length,
+      items,
+      count: items.length,
     });
   } catch (error) {
-    console.error("Error in listPosts:", error);
+    console.log("Error in listPosts:", error);
 
     return buildJsonResponse(500, {
       message: "An unexpected error occurred while listing posts",
