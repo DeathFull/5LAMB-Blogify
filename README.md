@@ -1,90 +1,196 @@
-<!--
-title: 'Serverless Framework Node Express API service backed by DynamoDB on AWS'
-description: 'This template demonstrates how to develop and deploy a simple Node Express API service backed by DynamoDB running on AWS Lambda using the Serverless Framework.'
-layout: Doc
-framework: v4
-platform: AWS
-language: nodeJS
-priority: 1
-authorLink: 'https://github.com/serverless'
-authorName: 'Serverless, Inc.'
-authorAvatar: 'https://avatars1.githubusercontent.com/u/13742415?s=200&v=4'
--->
+# Blogify – Plateforme de blogging Headless (Serverless)
 
-# Serverless Framework Node Express API on AWS
+## Présentation
 
-This template demonstrates how to develop and deploy a simple Node Express API service, backed by DynamoDB table, running on AWS Lambda using the Serverless Framework.
+Blogify est une plateforme de blogging headless entièrement serverless, offrant une API sécurisée permettant :
 
-This template configures a single function, `api`, which is responsible for handling all incoming requests using the `httpApi` event. To learn more about `httpApi` event configuration options, please refer to [httpApi event docs](https://www.serverless.com/framework/docs/providers/aws/events/http-api/). As the event is configured in a way to accept all incoming requests, the Express.js framework is responsible for routing and handling requests internally. This implementation uses the `serverless-http` package to transform the incoming event request payloads to payloads compatible with Express.js. To learn more about `serverless-http`, please refer to the [serverless-http README](https://github.com/dougmoscrop/serverless-http).
+- l’authentification des utilisateurs (JWT) ;
+- la création, modification et suppression d’articles (CRUD) ;
+- la gestion des médias (upload via URL pré-signée S3) ;
+- l’association d’un média à un article ;
+- la recherche textuelle sur les articles ;
+- la consultation publique des médias.
 
-Additionally, it also handles provisioning of a DynamoDB database that is used for storing data about users. The Express.js application exposes two endpoints, `POST /users` and `GET /user/:userId`, which create and retrieve a user record.
+Le projet utilise exclusivement des services managés AWS :
 
-## Usage
+- AWS Lambda (Node.js)
+- AWS API Gateway (HTTP API)
+- AWS DynamoDB (NoSQL)
+- AWS S3 (stockage d’objets)
+- Serverless Framework
 
-### Deployment
+## Architecture générale
 
-Install dependencies with:
+Modèle serverless classique fonctionnant entièrement à l’événement :
 
 ```
+Client HTTP
+ │
+ ▼
+API Gateway (HTTP API)
+ │
+ ├── /auth/*  → Lambda auth.ts      → DynamoDB (Users)
+ ├── /posts/* → Lambda posts.ts     → DynamoDB (Posts)
+ └── /media/* → Lambda media.ts
+                 ├→ DynamoDB (Media)
+                 └→ S3 (upload et accès via URL pré-signée)
+```
+
+Tous les accès S3 sont privés.  
+Aucun fichier n’est public.  
+Le client doit utiliser une URL pré-signée générée par Lambda.
+
+## Structure du projet
+
+```
+.
+├── src/
+│   ├── lambda/
+│   │   ├── auth.ts
+│   │   ├── posts.ts
+│   │   └── media.ts
+│   ├── helpers/
+│   │   ├── buildJsonResponse.ts
+│   │   └── verifyJwt.ts
+│   ├── middleware/
+│   │   ├── auth/
+│   │   │   ├── requireRole.ts
+│   │   │   ├── validateLoginPayload.ts
+│   │   │   └── validateRegisterPayload.ts
+│   │   ├── media/
+│   │   │   └── validateMediaPayload.ts
+│   │   └── posts/
+│   │       ├── validatePostPayload.ts
+│   │       └── canModifyPost.ts
+│   ├── config/
+│   │   ├── s3Clients.ts
+│   │   └── dynamoDbClient.ts
+│   └── types/
+│       ├── userTypes.ts
+│       ├── postTypes.ts
+│       ├── mediaTypes.ts
+│       ├── jwtTypes.ts
+│       ├── httpTypes.ts
+│       └── validationTypes.ts
+│
+├── serverless.yml
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+## Prérequis
+
+Outils nécessaires :
+
+| Outil                | Version                                    |
+| -------------------- | ------------------------------------------ |
+| Node.js              | 18.x ou supérieur (recommandé : 20.x)      |
+| Serverless Framework | `npm install -g serverless`                |
+| AWS CLI              | Configuré avec un utilisateur IAM autorisé |
+
+Vérification :
+
+```bash
+node -v
+sls -v
+aws sts get-caller-identity
+```
+
+## Installation
+
+Installer les dépendances :
+
+```bash
 npm install
 ```
 
-and then deploy with:
+## Développement local (facultatif)
 
-```
-serverless deploy
-```
+Serverless peut exécuter vos Lambdas en mode développement :
 
-After running deploy, you should see output similar to:
-
-```
-Deploying "aws-node-express-dynamodb-api" to stage "dev" (us-east-1)
-
-✔ Service deployed to stack aws-node-express-dynamodb-api-dev (109s)
-
-endpoint: ANY - https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com
-functions:
-  api: aws-node-express-dynamodb-api-dev-api (3.8 MB)
-```
-
-_Note_: In current form, after deployment, your API is public and can be invoked by anyone. For production deployments, you might want to configure an authorizer. For details on how to do that, refer to [`httpApi` event docs](https://www.serverless.com/framework/docs/providers/aws/events/http-api/). Additionally, in current configuration, the DynamoDB table will be removed when running `serverless remove`. To retain the DynamoDB table even after removal of the stack, add `DeletionPolicy: Retain` to its resource definition.
-
-### Invocation
-
-After successful deployment, you can create a new user by calling the corresponding endpoint:
-
-```
-curl --request POST 'https://xxxxxx.execute-api.us-east-1.amazonaws.com/users' --header 'Content-Type: application/json' --data-raw '{"name": "John", "userId": "someUserId"}'
-```
-
-Which should result in the following response:
-
-```json
-{ "userId": "someUserId", "name": "John" }
-```
-
-You can later retrieve the user by `userId` by calling the following endpoint:
-
-```
-curl https://xxxxxxx.execute-api.us-east-1.amazonaws.com/users/someUserId
-```
-
-Which should result in the following response:
-
-```json
-{ "userId": "someUserId", "name": "John" }
-```
-
-### Local development
-
-The easiest way to develop and test your function is to use the `dev` command:
-
-```
+```bash
 serverless dev
 ```
 
-This will start a local emulator of AWS Lambda and tunnel your requests to and from AWS Lambda, allowing you to interact with your function as if it were running in the cloud.
+Ce mode :
 
-Now you can invoke the function as before, but this time the function will be executed locally. Now you can develop your function locally, invoke it, and see the results immediately without having to re-deploy.
+- crée une API locale ;
+- recharge automatiquement le code à chaque modification ;
+- nécessite que les ressources AWS existent déjà (tables, bucket).
 
-When you are done developing, don't forget to run `serverless deploy` to deploy the function to the cloud.
+## Déploiement sur AWS
+
+### 1. Vérifier les identifiants AWS
+
+```bash
+aws sts get-caller-identity
+```
+
+### 2. Déployer
+
+```bash
+serverless deploy
+```
+
+Serverless déploie :
+
+- l’API Gateway HTTP ;
+- les fonctions Lambda ;
+- les tables DynamoDB (Users, Posts, Media) ;
+- le bucket S3 pour les médias ;
+- les variables d’environnement.
+
+Les URLs finales sont affichées à la fin du déploiement.
+
+## Documentation API (Swagger)
+
+L’ensemble des endpoints et schémas est documenté dans :
+
+```
+swagger.yml
+```
+
+Ce fichier peut être importé dans Swagger UI, Postman, Insomnia ou Stoplight.
+
+## Modèles DynamoDB
+
+### Table Utilisateurs
+
+```
+PK : userId (S)
+GSI : email-index (email)
+```
+
+### Table Articles
+
+```
+PK : postId (S)
+```
+
+### Table Médias
+
+```
+PK : mediaId (S)
+GSI : postId-index (postId)
+```
+
+## Variables d’environnement
+
+Injectées automatiquement par Serverless :
+
+```
+USERS_TABLE
+POSTS_TABLE
+MEDIA_BUCKET
+MEDIA_TABLE
+JWT_SECRET
+```
+
+## Nettoyage
+
+Supprimer toutes les ressources AWS créées :
+
+```bash
+serverless remove
+```
