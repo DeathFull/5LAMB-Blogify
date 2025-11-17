@@ -1,0 +1,136 @@
+### Variables
+@baseUrl = https://pnvaoca5d1.execute-api.eu-west-3.amazonaws.com
+@postId = fc38043c-9892-4177-8632-3dc4adeaa48c
+@mediaId = 102f1943-028e-4a68-9530-976360a043ef
+
+### ====================
+### AUTH ENDPOINTS
+### ====================
+
+### Register new user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "SecurePassword123!",
+  "name": "Test User"
+}
+
+### Login user
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "SecurePassword123!"
+}
+
+> {%
+    client.test("Login successful", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+
+    client.global.set("token", response.body.token);
+    console.log("Token updated: " + response.body.token);
+%}
+
+### ====================
+### POSTS ENDPOINTS
+### ====================
+
+### Create new post (requires authentication)
+POST {{baseUrl}}/posts
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "My First Blog Post",
+  "content": "This is the content of my first blog post. It contains some interesting information."
+}
+
+### Get single post by ID
+GET {{baseUrl}}/posts/{{postId}}
+
+### List all posts (with optional query parameters)
+GET {{baseUrl}}/posts
+
+### List posts with search query
+GET {{baseUrl}}/posts?q=blog&limit=10
+
+### Update post (requires authentication)
+PUT {{baseUrl}}/posts/{{postId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Updated Blog Post Title",
+  "content": "This is the updated content of my blog post."
+}
+
+### Delete post (requires authentication)
+DELETE {{baseUrl}}/posts/{{postId}}
+Authorization: Bearer {{token}}
+
+### ====================
+### MEDIA ENDPOINTS
+### ====================
+
+### Create media (get upload URL) - without postId
+POST {{baseUrl}}/media
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "fileName": "my-image.jpg",
+  "mimeType": "image/jpeg",
+  "fileSize": 1024000,
+  "type": "IMAGE"
+}
+
+> {%
+    client.test("Media created successfully", function() {
+        client.assert(response.status === 201, "Response status is not 201");
+    });
+
+    client.global.set("uploadUrl", response.body.uploadUrl);
+    client.global.set("mediaId", response.body.media.mediaId);
+    console.log("Upload URL: " + response.body.uploadUrl);
+    console.log("Media ID: " + response.body.media.mediaId);
+%}
+
+### Create media (get upload URL) - with postId
+POST {{baseUrl}}/media
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "fileName": "blog-cover.png",
+  "mimeType": "image/png",
+  "fileSize": 2048000,
+  "type": "IMAGE",
+  "postId": "{{postId}}"
+}
+
+> {%
+    client.test("Media created successfully", function() {
+        client.assert(response.status === 201, "Response status is not 201");
+    });
+
+    client.global.set("uploadUrl", response.body.uploadUrl);
+    client.global.set("mediaId", response.body.media.mediaId);
+    console.log("Upload URL: " + response.body.uploadUrl);
+    console.log("Media ID: " + response.body.media.mediaId);
+%}
+
+### Upload fake media file to S3
+PUT {{uploadUrl}}
+Content-Type: image/png
+
+< ./test-image.png
+
+### Get media (redirects to download URL)
+GET {{baseUrl}}/media/{{mediaId}}
+
+### List media for a specific post
+GET {{baseUrl}}/posts/{{postId}}/media
