@@ -20,10 +20,14 @@ provider:
   httpApi:
     cors: true
   environment:
-    USERS_TABLE: ${self:custom.usersTableName}
-    POSTS_TABLE: ${self:custom.postsTableName}
-    MEDIA_BUCKET: ${self:custom.mediaBucketName}
-    MEDIA_TABLE: ${self:custom.mediaTableName}
+    USERS_TABLE:
+      Ref: UsersTable
+    POSTS_TABLE:
+      Ref: PostsTable
+    MEDIA_BUCKET:
+      Ref: MediaBucket
+    MEDIA_TABLE:
+      Ref: MediaTable
     JWT_SECRET: "Paulette super secrete"
 
   iam:
@@ -38,10 +42,10 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
-            - Fn::GetAtt: [UsersTable, Arn]
+            - Fn::GetAtt: [ UsersTable, Arn ]
             - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.usersTableName}/index/email-index
-            - Fn::GetAtt: [PostsTable, Arn]
-            - Fn::GetAtt: [MediaTable, Arn]
+            - Fn::GetAtt: [ PostsTable, Arn ]
+            - Fn::GetAtt: [ MediaTable, Arn ]
             - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.mediaTableName}/index/postId-index
 
         - Effect: Allow

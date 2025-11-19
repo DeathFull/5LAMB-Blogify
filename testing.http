@@ -1,7 +1,7 @@
 ### Variables
-@baseUrl = https://pnvaoca5d1.execute-api.eu-west-3.amazonaws.com
-@postId = fc38043c-9892-4177-8632-3dc4adeaa48c
-@mediaId = 102f1943-028e-4a68-9530-976360a043ef
+@baseUrl = https://22x872qkw1.execute-api.eu-west-3.amazonaws.com
+@postId = 0b29629f-08e6-4f11-aa58-c6c7eb4f7520
+@mediaId = b4a8431a-befc-4eda-b629-7aff3697ddf5
 
 ### ====================
 ### AUTH ENDPOINTS

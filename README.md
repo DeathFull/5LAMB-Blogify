@@ -135,23 +135,77 @@ serverless deploy
 
 Serverless déploie :
 
-- l’API Gateway HTTP ;
+- l'API Gateway HTTP ;
 - les fonctions Lambda ;
 - les tables DynamoDB (Users, Posts, Media) ;
 - le bucket S3 pour les médias ;
-- les variables d’environnement.
+- les variables d'environnement.
 
 Les URLs finales sont affichées à la fin du déploiement.
 
+### 3. Mettre à jour l'URL de base dans Swagger
+
+⚠️ **Important** : Après le déploiement, récupérez l'URL de base de votre API et mettez à jour le fichier `swagger.yml` :
+
+```bash
+# Exemple d'URL retournée par le déploiement :
+# https://abc123xyz.execute-api.eu-west-3.amazonaws.com
+```
+
+Ouvrez `swagger.yml` et modifiez la section `servers` :
+
+```yaml
+servers:
+  - url: https://VOTRE-URL-ICI.execute-api.eu-west-3.amazonaws.com
+    description: Production API (AWS)
+```
+
+Cette mise à jour permet à Swagger UI et aux outils comme Postman de pointer automatiquement vers votre API déployée.
+
 ## Documentation API (Swagger)
 
-L’ensemble des endpoints et schémas est documenté dans :
+L'ensemble des endpoints et schémas est documenté dans le fichier `swagger.yml`.
 
-```
-swagger.yml
+> ⚠️ **Note** : Assurez-vous que l'URL du serveur dans `swagger.yml` correspond à votre API déployée (voir section [Déploiement](#déploiement-sur-aws)).
+
+### Visualiser la documentation localement
+
+Pour démarrer l'interface Swagger UI en local :
+
+```bash
+npm run swagger
 ```
 
-Ce fichier peut être importé dans Swagger UI, Postman, Insomnia ou Stoplight.
+Puis ouvrez votre navigateur sur : **http://localhost:3000/api-docs**
+
+L'interface interactive Swagger UI vous permet de :
+- Visualiser tous les endpoints de l'API
+- Consulter les schémas de requête/réponse
+- Tester les endpoints directement depuis le navigateur
+- Voir les codes de statut et les exemples
+
+### Utilisation dans d'autres outils
+
+Le fichier `swagger.yml` (OpenAPI 3.0.3) peut également être importé dans :
+- **Postman** : Import → OpenAPI 3.0
+- **Insomnia** : Import → From File
+- **Stoplight** : Pour générer une documentation web professionnelle
+- **Swagger Editor** : https://editor.swagger.io
+
+### Routes disponibles
+
+| Méthode | Route | Description | Auth |
+|---------|-------|-------------|------|
+| `POST` | `/auth/register` | Créer un nouveau compte utilisateur | ❌ |
+| `POST` | `/auth/login` | Se connecter et obtenir un JWT | ❌ |
+| `POST` | `/posts` | Créer un article | ✅ |
+| `GET` | `/posts` | Lister les articles (avec recherche via `?q=`) | ❌ |
+| `GET` | `/posts/{postId}` | Récupérer un article | ❌ |
+| `PUT` | `/posts/{postId}` | Modifier un article | ✅ |
+| `DELETE` | `/posts/{postId}` | Supprimer un article | ✅ |
+| `POST` | `/media` | Créer un média (obtenir une URL d'upload) | ✅ |
+| `GET` | `/media/{mediaId}` | Accéder à un média (redirection) | ❌ |
+| `GET` | `/posts/{postId}/media` | Lister les médias d'un article | ❌ |
 
 ## Modèles DynamoDB
 
