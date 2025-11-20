@@ -23,6 +23,8 @@ Le projet utilise exclusivement des services managés AWS :
 
 Modèle serverless classique fonctionnant entièrement à l’événement :
 
+![blogify architecture](./assets/blogify-architecture.png)
+
 ```
 Client HTTP
  │
