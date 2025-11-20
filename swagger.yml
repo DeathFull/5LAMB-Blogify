@@ -7,7 +7,7 @@ info:
   version: 1.0.0
 
 servers:
-  - url: https://pnvaoca5d1.execute-api.eu-west-3.amazonaws.com
+  - url: https://22x872qkw1.execute-api.eu-west-3.amazonaws.com
     description: Dev environment
 
 tags:
@@ -36,7 +36,26 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                type: object
+                properties:
+                  userId:
+                    type: string
+                  email:
+                    type: string
+                    format: email
+                  name:
+                    type: string
+                    nullable: true
+                  role:
+                    $ref: "#/components/schemas/UserRole"
+                  createdAt:
+                    type: string
+                    format: date-time
+                required:
+                  - userId
+                  - email
+                  - role
+                  - createdAt
         "400":
           description: Invalid request body
           content:
@@ -136,6 +155,12 @@ paths:
       summary: List all posts
       operationId: listPosts
       parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          required: false
+          description: Optional search query to filter posts by title or content
         - in: query
           name: limit
           schema:
@@ -486,7 +511,22 @@ components:
           type: string
           description: JWT access token
         user:
-          $ref: "#/components/schemas/User"
+          type: object
+          properties:
+            userId:
+              type: string
+            email:
+              type: string
+              format: email
+            name:
+              type: string
+              nullable: true
+            role:
+              $ref: "#/components/schemas/UserRole"
+          required:
+            - userId
+            - email
+            - role
       required:
         - token
         - user
@@ -625,10 +665,13 @@ components:
           type: integer
           format: int64
         type:
-          $ref: "#/components/schemas/MediaType"
+          allOf:
+            - $ref: "#/components/schemas/MediaType"
+          description: Media type (defaults to IMAGE if not provided)
         postId:
           type: string
           nullable: true
+          description: Optional post ID to attach this media to
       required:
         - fileName
         - mimeType

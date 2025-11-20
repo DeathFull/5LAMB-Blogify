@@ -86,7 +86,7 @@ sls -v
 
 ---
 
-# Installation, développement et options de Test
+# Installation, développement et options de test
 
 Ce projet peut être testé ou exécuté de trois manières différentes.  
 La méthode la plus simple est la première (API déjà déployée).
@@ -183,7 +183,7 @@ Le déploiement crée automatiquement :
 - un bucket S3 privé,
 - les variables d’environnement.
 
-Les URLs de l’API seront affichées dans le terminal après déploiement. Vous devrez cependant avoir lié votre compte AWS à Serverless Framework au préalable.
+Les URLs de l’API seront affichées dans le terminal après déploiement.
 
 ---
 
