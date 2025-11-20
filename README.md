@@ -176,7 +176,7 @@ Pour démarrer l'interface Swagger UI en local :
 npm run swagger
 ```
 
-Puis ouvrez votre navigateur sur : **http://localhost:3000/api-docs**
+Puis ouvrez votre navigateur sur : **http://localhost:3000/**
 
 L'interface interactive Swagger UI vous permet de :
 - Visualiser tous les endpoints de l'API
