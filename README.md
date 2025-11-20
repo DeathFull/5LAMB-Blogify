@@ -4,14 +4,13 @@
 
 Blogify est une plateforme de blogging headless entièrement serverless, offrant une API sécurisée permettant :
 
-- l’authentification des utilisateurs (JWT) ;
-- la création, modification et suppression d’articles (CRUD) ;
-- la gestion des médias (upload via URL pré-signée S3) ;
-- l’association d’un média à un article ;
-- la recherche textuelle sur les articles ;
-- la consultation publique des médias.
+- l’authentification des utilisateurs (JWT),
+- la création, modification et suppression d’articles,
+- la gestion des médias (upload via URL pré-signée S3),
+- l’association d’un média à un article,
+- la recherche textuelle sur le contenu des articles.
 
-Le projet utilise exclusivement des services managés AWS :
+Le projet utilise exclusivement des services AWS :
 
 - AWS Lambda (Node.js)
 - AWS API Gateway (HTTP API)
@@ -23,18 +22,7 @@ Le projet utilise exclusivement des services managés AWS :
 
 Modèle serverless classique fonctionnant entièrement à l’événement :
 
-```
-Client HTTP
- │
- ▼
-API Gateway (HTTP API)
- │
- ├── /auth/*  → Lambda auth.ts      → DynamoDB (Users)
- ├── /posts/* → Lambda posts.ts     → DynamoDB (Posts)
- └── /media/* → Lambda media.ts
-                 ├→ DynamoDB (Media)
-                 └→ S3 (upload et accès via URL pré-signée)
-```
+![blogify architecture](./assets/blogify-architecture.png)
 
 Tous les accès S3 sont privés.  
 Aucun fichier n’est public.  
@@ -75,6 +63,7 @@ Le client doit utiliser une URL pré-signée générée par Lambda.
 │
 ├── serverless.yml
 ├── package.json
+├── swagger.yml
 ├── tsconfig.json
 └── README.md
 ```
@@ -83,31 +72,73 @@ Le client doit utiliser une URL pré-signée générée par Lambda.
 
 Outils nécessaires :
 
-| Outil                | Version                                    |
-| -------------------- | ------------------------------------------ |
-| Node.js              | 18.x ou supérieur (recommandé : 20.x)      |
-| Serverless Framework | `npm install -g serverless`                |
-| AWS CLI              | Configuré avec un utilisateur IAM autorisé |
+| Outil                | Version                     |
+| -------------------- | --------------------------- |
+| Node.js              | 20.x ou supérieur           |
+| Serverless Framework | `npm install -g serverless` |
 
 Vérification :
 
 ```bash
 node -v
 sls -v
-aws sts get-caller-identity
 ```
 
-## Installation
+---
 
-Installer les dépendances :
+# Installation, développement et options de test
+
+Ce projet peut être testé ou exécuté de trois manières différentes.  
+La méthode la plus simple est la première (API déjà déployée).
+
+---
+
+## 1. Utiliser directement l’API déjà déployée (aucune installation requise)
+
+L’API Blogify est déjà en ligne :
+
+```
+https://87tbxkg5wg.execute-api.eu-west-3.amazonaws.com/{...}
+```
+
+### Tester l’API avec Swagger local
+
+Même si l’API est déjà déployée, vous pouvez afficher le Swagger **en local** :
+
+1. Installer les dépendances :
 
 ```bash
 npm install
 ```
 
-## Développement local (facultatif)
+2. Démarrer Swagger UI :
 
-Serverless peut exécuter vos Lambdas en mode développement :
+```bash
+npm run swagger
+```
+
+Swagger sera accessible à :
+
+```
+http://localhost:3000
+```
+
+---
+
+## 2. Tester en local avec Serverless Dev Mode
+
+Permet d’exécuter les Lambdas **en local**, avec rechargement automatique.
+
+### Étapes
+
+1. Dézipper le projet
+2. Installer les dépendances :
+
+```bash
+npm install
+```
+
+3. Lancer le mode dev :
 
 ```bash
 serverless dev
@@ -115,123 +146,142 @@ serverless dev
 
 Ce mode :
 
-- crée une API locale ;
-- recharge automatiquement le code à chaque modification ;
-- nécessite que les ressources AWS existent déjà (tables, bucket).
+- démarre une API locale,
+- recharge automatiquement le code,
 
-## Déploiement sur AWS
+---
 
-### 1. Vérifier les identifiants AWS
+## 3. Déployer votre propre instance AWS
+
+Pour tester la plateforme avec **votre propre infrastructure AWS**.
+
+### Étapes
+
+1. Installer les dépendances :
 
 ```bash
-aws sts get-caller-identity
+npm install
 ```
 
-### 2. Déployer
+2. Se connecter à Serverless Framework :
+
+```bash
+serverless login
+```
+
+3. Déployer :
 
 ```bash
 serverless deploy
 ```
 
-Serverless déploie :
+Le déploiement crée automatiquement :
 
-- l'API Gateway HTTP ;
-- les fonctions Lambda ;
-- les tables DynamoDB (Users, Posts, Media) ;
-- le bucket S3 pour les médias ;
-- les variables d'environnement.
+- une API Gateway HTTP,
+- les Lambdas,
+- les tables DynamoDB,
+- un bucket S3 privé,
+- les variables d’environnement.
 
-Les URLs finales sont affichées à la fin du déploiement.
+Les URLs de l’API seront affichées dans le terminal après déploiement.
 
-### 3. Mettre à jour l'URL de base dans Swagger
-
-⚠️ **Important** : Après le déploiement, récupérez l'URL de base de votre API et mettez à jour le fichier `swagger.yml` :
-
-```bash
-# Exemple d'URL retournée par le déploiement :
-# https://abc123xyz.execute-api.eu-west-3.amazonaws.com
-```
-
-Ouvrez `swagger.yml` et modifiez la section `servers` :
-
-```yaml
-servers:
-  - url: https://VOTRE-URL-ICI.execute-api.eu-west-3.amazonaws.com
-    description: Production API (AWS)
-```
-
-Cette mise à jour permet à Swagger UI et aux outils comme Postman de pointer automatiquement vers votre API déployée.
+---
 
 ## Documentation API (Swagger)
 
-L'ensemble des endpoints et schémas est documenté dans le fichier `swagger.yml`.
+Le fichier de spécification OpenAPI :
 
-> ⚠️ **Note** : Assurez-vous que l'URL du serveur dans `swagger.yml` correspond à votre API déployée (voir section [Déploiement](#déploiement-sur-aws)).
+```
+swagger.yml
+```
 
-### Visualiser la documentation localement
+peut être utilisé avec :
 
-Pour démarrer l'interface Swagger UI en local :
+- Swagger UI
+- Postman
+- Insomnia
+
+Ou visualisé via :
 
 ```bash
+npm install
 npm run swagger
 ```
 
-Puis ouvrez votre navigateur sur : **http://localhost:3000/**
+---
 
-L'interface interactive Swagger UI vous permet de :
-- Visualiser tous les endpoints de l'API
-- Consulter les schémas de requête/réponse
-- Tester les endpoints directement depuis le navigateur
-- Voir les codes de statut et les exemples
+## Modèles DynamoDB (détaillés)
 
-### Utilisation dans d'autres outils
+### Table Users – `<stage>-blogify-users`
 
-Le fichier `swagger.yml` (OpenAPI 3.0.3) peut également être importé dans :
-- **Postman** : Import → OpenAPI 3.0
-- **Insomnia** : Import → From File
-- **Stoplight** : Pour générer une documentation web professionnelle
-- **Swagger Editor** : https://editor.swagger.io
+Stocke les comptes utilisateurs.
 
-### Routes disponibles
+**Clés :**
 
-| Méthode | Route | Description | Auth |
-|---------|-------|-------------|------|
-| `POST` | `/auth/register` | Créer un nouveau compte utilisateur | ❌ |
-| `POST` | `/auth/login` | Se connecter et obtenir un JWT | ❌ |
-| `POST` | `/posts` | Créer un article | ✅ |
-| `GET` | `/posts` | Lister les articles (avec recherche via `?q=`) | ❌ |
-| `GET` | `/posts/{postId}` | Récupérer un article | ❌ |
-| `PUT` | `/posts/{postId}` | Modifier un article | ✅ |
-| `DELETE` | `/posts/{postId}` | Supprimer un article | ✅ |
-| `POST` | `/media` | Créer un média (obtenir une URL d'upload) | ✅ |
-| `GET` | `/media/{mediaId}` | Accéder à un média (redirection) | ❌ |
-| `GET` | `/posts/{postId}/media` | Lister les médias d'un article | ❌ |
+- PK : `userId`
+- GSI : `email-index` (email)
 
-## Modèles DynamoDB
+**Champs :**
 
-### Table Utilisateurs
+| Champ        | Type   | Obligatoire | Description                         |
+| ------------ | ------ | ----------- | ----------------------------------- |
+| userId       | string | Oui         | Identifiant unique (UUID)           |
+| email        | string | Oui         | Email unique, utilisé pour le login |
+| passwordHash | string | Oui         | Mot de passe hashé (bcrypt)         |
+| name         | string | Non         | Nom affiché                         |
+| role         | string | Oui         | `ADMIN`, `EDITOR`, `AUTHOR`         |
+| createdAt    | string | Oui         | Timestamp ISO                       |
+| updatedAt    | string | Oui         | Timestamp ISO                       |
 
-```
-PK : userId (S)
-GSI : email-index (email)
-```
+---
 
-### Table Articles
+### Table Posts – `<stage>-blogify-posts`
 
-```
-PK : postId (S)
-```
+Stocke les articles.
 
-### Table Médias
+**Clés :**
 
-```
-PK : mediaId (S)
-GSI : postId-index (postId)
-```
+- PK : `postId`
+
+**Champs :**
+
+| Champ     | Type   | Obligatoire | Description          |
+| --------- | ------ | ----------- | -------------------- |
+| postId    | string | Oui         | Identifiant unique   |
+| authorId  | string | Oui         | Référence à `userId` |
+| title     | string | Oui         | Titre                |
+| content   | string | Oui         | Contenu              |
+| createdAt | string | Oui         | Timestamp ISO        |
+| updatedAt | string | Oui         | Timestamp ISO        |
+
+---
+
+### Table Medias – `<stage>-blogify-media-metadata`
+
+Stocke les métadonnées des médias.
+
+**Clés :**
+
+- PK : `mediaId`
+- GSI : `postId-index` (postId)
+
+**Champs :**
+
+| Champ     | Type   | Obligatoire | Description               |
+| --------- | ------ | ----------- | ------------------------- |
+| mediaId   | string | Oui         | Identifiant unique        |
+| ownerId   | string | Oui         | Propriétaire (userId)     |
+| postId    | string | Non         | Article associé           |
+| type      | string | Oui         | `IMAGE`, `VIDEO`, `OTHER` |
+| mimeType  | string | Oui         | Type MIME                 |
+| fileName  | string | Oui         | Nom d’origine             |
+| fileSize  | number | Oui         | Taille en octets          |
+| bucketKey | string | Oui         | Clé S3 complète           |
+| createdAt | string | Oui         | Timestamp ISO             |
+
+---
 
 ## Variables d’environnement
-
-Injectées automatiquement par Serverless :
 
 ```
 USERS_TABLE
@@ -241,9 +291,9 @@ MEDIA_TABLE
 JWT_SECRET
 ```
 
-## Nettoyage
+---
 
-Supprimer toutes les ressources AWS créées :
+## Nettoyage
 
 ```bash
 serverless remove
