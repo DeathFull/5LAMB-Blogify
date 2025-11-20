@@ -25,19 +25,6 @@ Modèle serverless classique fonctionnant entièrement à l’événement :
 
 ![blogify architecture](./assets/blogify-architecture.png)
 
-```
-Client HTTP
- │
- ▼
-API Gateway (HTTP API)
- │
- ├── /auth/*  → Lambda auth.ts      → DynamoDB (Users)
- ├── /posts/* → Lambda posts.ts     → DynamoDB (Posts)
- └── /media/* → Lambda media.ts
-                 ├→ DynamoDB (Media)
-                 └→ S3 (upload et accès via URL pré-signée)
-```
-
 Tous les accès S3 sont privés.  
 Aucun fichier n’est public.  
 Le client doit utiliser une URL pré-signée générée par Lambda.
